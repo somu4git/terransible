@@ -1,4 +1,5 @@
 provider "aws" {
+  version = "1.13.0"
   region  = "${var.aws_region}"
   profile = "${var.aws_profile}"
 }
@@ -199,7 +200,7 @@ resource "aws_subnet" "wp_rds3_subnet" {
 
 # Subnet Associations
 
-resource "aws_route_table_association" "wp_public_assoc" {
+resource "aws_route_table_association" "wp_public1_assoc" {
   subnet_id      = "${aws_subnet.wp_public1_subnet.id}"
   route_table_id = "${aws_route_table.wp_public_rt.id}"
 }
@@ -218,6 +219,8 @@ resource "aws_route_table_association" "wp_private2_assoc" {
   subnet_id      = "${aws_subnet.wp_private2_subnet.id}"
   route_table_id = "${aws_default_route_table.wp_private_rt.id}"
 }
+
+#RDS Subnet group
 
 resource "aws_db_subnet_group" "wp_rds_subnetgroup" {
   name = "wp_rds_subnetgroup"
@@ -349,7 +352,7 @@ resource "aws_s3_bucket" "code" {
   }
 }
 
-#---------compute-----------
+#---------RDS -----------
 
 resource "aws_db_instance" "wp_db" {
   allocated_storage      = 10
@@ -403,7 +406,7 @@ EOD
   }
 }
 
-#load balancer
+#------------- load balancer -------------
 
 resource "aws_elb" "wp_elb" {
   name = "${var.domain_name}-elb"
@@ -439,7 +442,7 @@ resource "aws_elb" "wp_elb" {
   }
 }
 
-#AMI 
+#-------------Golden AMI -----------
 
 resource "random_id" "golden_ami" {
   byte_length = 8
@@ -461,7 +464,7 @@ EOT
   }
 }
 
-#launch configuration
+#---------------launch configuration----------------
 
 resource "aws_launch_configuration" "wp_lc" {
   name_prefix          = "wp_lc-"
@@ -477,7 +480,7 @@ resource "aws_launch_configuration" "wp_lc" {
   }
 }
 
-#ASG 
+#----------Auto Scaling Group ---------------------- 
 
 #resource "random_id" "rand_asg" {
 # byte_length = 8
@@ -515,7 +518,7 @@ resource "aws_autoscaling_group" "wp_asg" {
 #primary zone
 
 resource "aws_route53_zone" "primary" {
-  name              = "${var.domain_name}.com"
+  name              = "${var.domain_name}.me"
   delegation_set_id = "${var.delegation_set}"
 }
 
@@ -523,7 +526,7 @@ resource "aws_route53_zone" "primary" {
 
 resource "aws_route53_record" "www" {
   zone_id = "${aws_route53_zone.primary.zone_id}"
-  name    = "www.${var.domain_name}.com"
+  name    = "www.${var.domain_name}.me"
   type    = "A"
 
   alias {
@@ -537,16 +540,16 @@ resource "aws_route53_record" "www" {
 
 resource "aws_route53_record" "dev" {
   zone_id = "${aws_route53_zone.primary.zone_id}"
-  name    = "dev.${var.domain_name}.com"
+  name    = "dev.${var.domain_name}.me"
   type    = "A"
   ttl     = "300"
   records = ["${aws_instance.wp_dev.public_ip}"]
 }
 
-#secondary zone
+#Private zone
 
 resource "aws_route53_zone" "secondary" {
-  name   = "${var.domain_name}.com"
+  name   = "${var.domain_name}.me"
   vpc_id = "${aws_vpc.wp_vpc.id}"
 }
 
@@ -554,7 +557,7 @@ resource "aws_route53_zone" "secondary" {
 
 resource "aws_route53_record" "db" {
   zone_id = "${aws_route53_zone.secondary.zone_id}"
-  name    = "db.${var.domain_name}.com"
+  name    = "db.${var.domain_name}.me"
   type    = "CNAME"
   ttl     = "300"
   records = ["${aws_db_instance.wp_db.address}"]
